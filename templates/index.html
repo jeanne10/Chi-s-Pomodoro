@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pomodoro Leaderboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+    <div class="app-container">
+        <!-- TIMER PAGE -->
+        <div id="timer-page" class="page active">
+            <div id="date-label" class="date-label"></div>
+            <h1 id="greeting" class="greeting">Good morning!</h1>
+
+            <div class="timer-layout">
+
+                <!-- LEFT: TO-DO LIST -->
+                <section class="todo-col">
+                    <div class="todo-card">
+                        <div class="todo-head">
+                            <h2 id="todo-title" class="todo-title">Today's to-do</h2>
+                            <span id="todo-count" class="todo-count">0 of 0 done</span>
+                        </div>
+
+                        <div class="todo-progress"><div id="todo-bar" class="todo-bar"></div></div>
+
+                        <div class="todo-add-row">
+                            <input id="todo-input" class="todo-input" type="text" maxlength="100"
+                                   placeholder="Add a task for today..." autocomplete="off"
+                                   onkeydown="if(event.key==='Enter') addTodo()">
+                            <button type="button" id="todo-add" class="todo-add" title="Add task" onclick="addTodo()">+</button>
+                        </div>
+
+                        <ul id="todo-list" class="todo-list"></ul>
+
+                        <button type="button" id="todo-clear" class="todo-clear" onclick="clearCompletedTodos()">Clear completed</button>
+                    </div>
+                </section>
+
+                <!-- RIGHT: POMODORO -->
+                <section class="timer-col">
+                    <div class="controls-row">
+                        <select id="player-select" class="player-select" onchange="onPlayerChange()">
+                            <option value="">Select player...</option>
+                        </select>
+                        <div class="mode-pills-top">
+                            <button class="pill-sm focus-pill" onclick="switchMode('Focus')">Focus</button>
+                            <button class="pill-sm short-pill" onclick="switchMode('Short Break')">Short</button>
+                            <button class="pill-sm long-pill" onclick="switchMode('Long Break')">Long</button>
+                        </div>
+                    </div>
+
+                    <!-- Segmented Score-Style Dial -->
+                    <div class="dial-container">
+                        <svg class="dial-svg" viewBox="0 0 300 300">
+                            <path class="track-seg" d="M 150 40 A 110 110 0 0 1 237.7 82.3" />
+                            <path class="track-seg" d="M 237.7 82.3 A 110 110 0 0 1 237.7 217.7" />
+                            <path class="track-seg" d="M 237.7 217.7 A 110 110 0 0 1 150 260" />
+                            <path class="track-seg" d="M 150 260 A 110 110 0 0 1 62.3 217.7" />
+                            <path class="track-seg" d="M 62.3 217.7 A 110 110 0 0 1 62.3 82.3" />
+                            <path class="track-seg" d="M 62.3 82.3 A 110 110 0 0 1 150 40" />
+
+                            <circle id="progress-ring" cx="150" cy="150" r="110" pathLength="360" stroke-dasharray="360" stroke-dashoffset="0"></circle>
+                        </svg>
+                        <div class="dial-content">
+                            <span id="mode-title" class="mode-subtitle">focus</span>
+                            <span id="time-display" class="time-text">25:00</span>
+                            <div id="cycle-dots" class="cycle-dots">
+                                <span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="action-buttons">
+                        <button id="start-btn" class="btn btn-dark" onclick="toggleTimer()">Start</button>
+                        <button class="btn btn-card" onclick="resetTimer()">Reset</button>
+                        <button class="btn btn-yellow" onclick="skipTimer()">Skip</button>
+                    </div>
+
+                    <!-- Stats Cards with Watermarks -->
+                    <div class="stats-grid">
+                        <div class="stat-card card-blue">
+                            <div class="watermark-star"></div>
+                            <span class="card-label">Pomodoros today</span>
+                            <span id="stat-pomos" class="card-value">0</span>
+                        </div>
+                        <div class="stat-card card-yellow">
+                            <div class="watermark-plus"></div>
+                            <span class="card-label">Focus time today</span>
+                            <span id="stat-minutes" class="card-value">0m</span>
+                        </div>
+                    </div>
+
+                    <!-- Duration Settings Card -->
+                    <div class="settings-card">
+                        <div class="setting-item">
+                            <label>Focus</label>
+                            <input type="number" id="set-focus" min="1" max="120" value="25" onchange="updateDurations()">
+                        </div>
+                        <div class="setting-item">
+                            <label>Short Break</label>
+                            <input type="number" id="set-short" min="1" max="60" value="5" onchange="updateDurations()">
+                        </div>
+                        <div class="setting-item">
+                            <label>Long Break</label>
+                            <input type="number" id="set-long" min="1" max="60" value="15" onchange="updateDurations()">
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </div>
+
+        <!-- LEADERBOARD PAGE -->
+        <div id="board-page" class="page">
+            <div class="board-header">
+                <h2>Leaderboard</h2>
+                <p class="subtitle">who's been focusing the most</p>
+            </div>
+
+            <div class="period-pills">
+                <button class="period-pill active" onclick="setPeriod('Today')">Today</button>
+                <button class="period-pill" onclick="setPeriod('This week')">This week</button>
+                <button class="period-pill" onclick="setPeriod('All time')">All time</button>
+            </div>
+
+            <div id="leaderboard-list" class="leaderboard-list"></div>
+        </div>
+    </div>
+
+    <!-- Floating Bottom Navigation Dock -->
+    <nav class="floating-dock">
+        <div id="nav-timer" class="dock-tab active" onclick="showPage('timer')">
+            <span>◷</span> Timer
+        </div>
+        <div class="dock-add-btn" onclick="openAddPlayerModal()" title="Add Player">+</div>
+        <div id="nav-board" class="dock-tab" onclick="showPage('board')">
+            <span>♛</span> Ranks
+        </div>
+    </nav>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
