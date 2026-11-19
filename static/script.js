@@ -2,9 +2,12 @@ let appData = {
     users: [],
     sessions: [],
     todos: {},
-    settings: { Focus: 25, "Short Break": 5, "Long Break": 15 },
-    last_user: ""
+    settings: { Focus: 25, "Short Break": 5, "Long Break": 15 }
 };
+
+let myPlayer = localStorage.getItem("pomodoro_my_player") || "";
+let myToken = localStorage.getItem("pomodoro_my_token") || "";
+
 let currentMode = "Focus";
 let remainingSeconds = 25 * 60;
 let timerRunning = false;
@@ -32,32 +35,63 @@ function parseLocalDate(dateStr) {
 }
 
 window.onload = async () => {
+    renderPlayerBadge();
     renderTodos();
     await fetchAppData();
     updateDateDisplay();
     resetTimer();
-    if (!appData.users.length) {
-        setTimeout(openAddPlayerModal, 300);
+
+    if (!myPlayer) {
+        setTimeout(ensurePlayerRegistered, 300);
     }
+
+    // Auto-refresh leaderboard and data every 15 seconds so friends see live updates
+    setInterval(() => {
+        if (!timerRunning) {
+            fetchAppData();
+        }
+    }, 15000);
 };
 
 async function fetchAppData() {
-    const res = await fetch('/api/data');
-    appData = await res.json();
-    if (!appData.todos) {
-        try {
-            appData.todos = JSON.parse(localStorage.getItem('pomodoro_todos') || '{}');
-        } catch (e) {
-            appData.todos = {};
+    try {
+        const res = await fetch('/api/data');
+        appData = await res.json();
+        if (!appData.todos) appData.todos = {};
+
+        // If server wiped or player no longer exists in DB, unlock device so they can register
+        if (myPlayer && Array.isArray(appData.users) && !appData.users.includes(myPlayer)) {
+            myPlayer = "";
+            myToken = "";
+            localStorage.removeItem("pomodoro_my_player");
+            localStorage.removeItem("pomodoro_my_token");
         }
+
+        renderPlayerBadge();
+        syncSettingsInputs();
+        updateStats();
+        renderTodos();
+        if (document.getElementById('board-page').classList.contains('active')) {
+            renderLeaderboard();
+        }
+    } catch (e) {
+        console.error("Failed to fetch app data:", e);
     }
-    populatePlayers();
-    syncSettingsInputs();
-    updateStats();
-    renderTodos();
-    if (document.getElementById('board-page').classList.contains('active')) {
-        renderLeaderboard();
+}
+
+function renderPlayerBadge() {
+    const badge = document.getElementById('player-badge');
+    const label = document.getElementById('player-name-label');
+    if (myPlayer) {
+        label.innerText = myPlayer;
+        badge.classList.add('locked');
+        badge.title = "Locked to your device";
+    } else {
+        label.innerText = "Set your name...";
+        badge.classList.remove('locked');
+        badge.title = "Click to register your player name";
     }
+    updateGreeting();
 }
 
 function syncSettingsInputs() {
@@ -71,89 +105,74 @@ function updateDateDisplay() {
     document.getElementById('date-label').innerText = new Date().toLocaleDateString('en-US', options);
 }
 
-function populatePlayers() {
-    const select = document.getElementById('player-select');
-    select.innerHTML = '<option value="">Select player...</option>';
-    appData.users.forEach(u => {
-        const opt = document.createElement('option');
-        opt.value = u;
-        opt.innerText = u;
-        if (u === appData.last_user) opt.selected = true;
-        select.appendChild(opt);
-    });
-    updateGreeting();
-}
-
 function updateGreeting() {
     const hour = new Date().getHours();
     const part = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
-    const player = document.getElementById('player-select').value;
-    document.getElementById('greeting').innerText = player ? `${part}, ${player}` : `${part}!`;
+    document.getElementById('greeting').innerText = myPlayer ? `${part}, ${myPlayer}` : `${part}!`;
 }
 
-async function onPlayerChange() {
-    const selected = document.getElementById('player-select').value;
-    appData.last_user = selected;
-    updateGreeting();
-    updateStats();
-    renderTodos();
-    try {
-        await fetch('/api/last-user', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ user: selected })
-        });
-    } catch (e) {}
-}
+async function ensurePlayerRegistered() {
+    if (myPlayer) return true;
 
-async function openAddPlayerModal() {
-    const name = prompt("Enter a player name:");
-    if (!name || !name.trim()) return;
+    const name = prompt("Enter your player name (this locks to your device so nobody else can use your account):");
+    if (!name || !name.trim()) return false;
     const cleanName = name.trim().substring(0, 20);
-    
+
     const res = await fetch('/api/users', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: cleanName })
     });
-    appData = await res.json();
-    if (!appData.todos) appData.todos = {};
-    populatePlayers();
+    const result = await res.json();
+
+    if (!res.ok) {
+        alert(result.error || "Could not register that name.");
+        return false;
+    }
+
+    myPlayer = result.user;
+    myToken = result.token;
+    localStorage.setItem("pomodoro_my_player", myPlayer);
+    localStorage.setItem("pomodoro_my_token", myToken);
+
+    appData = result.state;
+    renderPlayerBadge();
     updateStats();
     renderTodos();
     if (document.getElementById('board-page').classList.contains('active')) {
         renderLeaderboard();
     }
+    return true;
 }
 
 /* ---------- TO-DO LIST FUNCTIONS ---------- */
-function getTodoUserKey() {
-    const player = document.getElementById('player-select')?.value;
-    return player || "_default";
-}
-
 function getCurrentTodos() {
+    if (!myPlayer) return [];
     if (!appData.todos) appData.todos = {};
-    const key = getTodoUserKey();
-    if (!Array.isArray(appData.todos[key])) {
-        appData.todos[key] = [];
+    if (!Array.isArray(appData.todos[myPlayer])) {
+        appData.todos[myPlayer] = [];
     }
-    return appData.todos[key];
+    return appData.todos[myPlayer];
 }
 
 async function syncTodos(todos) {
-    const key = getTodoUserKey();
+    if (!myPlayer) {
+        const ok = await ensurePlayerRegistered();
+        if (!ok) return;
+    }
     if (!appData.todos) appData.todos = {};
-    appData.todos[key] = todos;
-    localStorage.setItem('pomodoro_todos', JSON.stringify(appData.todos));
+    appData.todos[myPlayer] = todos;
     renderTodos();
-    try {
-        await fetch('/api/todos', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ user: key, todos })
-        });
-    } catch (e) {}
+
+    const res = await fetch('/api/todos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user: myPlayer, token: myToken, todos })
+    });
+    if (res.ok) {
+        appData = await res.json();
+        renderTodos();
+    }
 }
 
 function renderTodos() {
@@ -193,7 +212,7 @@ function renderTodos() {
         const delBtn = document.createElement('button');
         delBtn.type = 'button';
         delBtn.className = 'todo-del';
-        delBtn.innerHTML = '×';
+        delBtn.innerHTML = '&times;';
         delBtn.title = 'Delete task';
         delBtn.onclick = () => deleteTodo(idx);
 
@@ -205,6 +224,10 @@ function renderTodos() {
 }
 
 async function addTodo() {
+    if (!myPlayer) {
+        const ok = await ensurePlayerRegistered();
+        if (!ok) return;
+    }
     const input = document.getElementById('todo-input');
     if (!input) return;
     const text = input.value.trim();
@@ -242,12 +265,10 @@ function switchMode(mode) {
     updateDisplay();
 }
 
-function toggleTimer() {
-    const player = document.getElementById('player-select').value;
-    if (currentMode === "Focus" && !player) {
-        alert("Please add or select a player first!");
-        openAddPlayerModal();
-        return;
+async function toggleTimer() {
+    if (currentMode === "Focus" && !myPlayer) {
+        const ok = await ensurePlayerRegistered();
+        if (!ok) return;
     }
     
     if (timerRunning) {
@@ -288,18 +309,22 @@ function skipTimer() {
 
 async function onTimerComplete() {
     playBeep();
-    if (currentMode === "Focus") {
-        const player = document.getElementById('player-select').value;
+    if (currentMode === "Focus" && myPlayer) {
         const durMins = appData.settings["Focus"];
         const res = await fetch('/api/sessions', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ user: player, minutes: durMins, pomodoros: 1 })
+            body: JSON.stringify({
+                user: myPlayer,
+                token: myToken,
+                minutes: durMins,
+                pomodoros: 1
+            })
         });
-        const updated = await res.json();
-        updated.todos = appData.todos;
-        appData = updated;
-        updateStats();
+        if (res.ok) {
+            appData = await res.json();
+            updateStats();
+        }
     }
     advancePhase(true);
 }
@@ -358,9 +383,8 @@ async function updateDurations() {
 }
 
 function updateStats() {
-    const player = document.getElementById('player-select').value;
     const today = getLocalTodayStr();
-    const mine = appData.sessions.filter(s => s.user === player && s.date === today);
+    const mine = appData.sessions.filter(s => s.user === myPlayer && s.date === today);
     
     const totalPomos = mine.reduce((acc, s) => acc + (s.pomodoros || 1), 0);
     const totalMins = mine.reduce((acc, s) => acc + s.minutes, 0);
@@ -379,6 +403,7 @@ function showPage(pageName) {
     } else {
         document.getElementById('board-page').classList.add('active');
         document.getElementById('nav-board').classList.add('active');
+        fetchAppData();
         renderLeaderboard();
     }
 }
