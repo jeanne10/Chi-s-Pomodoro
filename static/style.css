@@ -12,6 +12,7 @@
   --blue-dark: #5C9CE6;
   --sage: #B8D8BA;
   --sage-dark: #4E8552;
+  --purple: #C7A0C4;
 }
 
 * {
@@ -90,7 +91,7 @@ body {
 /* ---------- To-do Card ---------- */
 .todo-card {
   position: relative;
-  background-color: var(--sage);
+  background-color: var(--purple);
   border-radius: 36px;
   padding: 38px;
   flex: 1;
