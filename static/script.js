@@ -212,7 +212,7 @@ function renderTodos() {
         const delBtn = document.createElement('button');
         delBtn.type = 'button';
         delBtn.className = 'todo-del';
-        delBtn.innerHTML = '&times;';
+        delBtn.innerHTML = '×';
         delBtn.title = 'Delete task';
         delBtn.onclick = () => deleteTodo(idx);
 
@@ -416,7 +416,40 @@ function setPeriod(period) {
     renderLeaderboard();
 }
 
+function renderPlayersRoster() {
+    const rosterEl = document.getElementById('players-roster');
+    const countEl = document.getElementById('player-count-badge');
+    if (!rosterEl || !countEl) return;
+
+    const users = Array.isArray(appData.users) ? appData.users : [];
+    countEl.innerText = `${users.length} player${users.length !== 1 ? 's' : ''}`;
+    rosterEl.innerHTML = '';
+
+    if (!users.length) {
+        rosterEl.innerHTML = `<span class="roster-empty">No players joined yet.</span>`;
+        return;
+    }
+
+    users.forEach(name => {
+        const chip = document.createElement('span');
+        const isMe = name === myPlayer;
+        chip.className = `player-chip ${isMe ? 'is-me' : ''}`;
+
+        const dot = document.createElement('span');
+        dot.className = 'player-chip-dot';
+
+        const label = document.createElement('span');
+        label.innerText = isMe ? `${name} (You)` : name;
+
+        chip.appendChild(dot);
+        chip.appendChild(label);
+        rosterEl.appendChild(chip);
+    });
+}
+
 function renderLeaderboard() {
+    renderPlayersRoster();
+
     const list = document.getElementById('leaderboard-list');
     list.innerHTML = '';
 
@@ -450,8 +483,8 @@ function renderLeaderboard() {
 
     const ranked = Object.entries(totals).sort((a, b) => b[1].mins - a[1].mins || b[1].pomos - a[1].pomos || a[0].localeCompare(b[0]));
 
-    if (!ranked.length || ranked.every(r => r[1].mins === 0)) {
-        list.innerHTML = `<div style="text-align:center; padding:48px 20px; color:var(--muted); font-family: Georgia, serif; font-style: italic; font-size: 18px;">No focus sessions recorded yet.</div>`;
+    if (!ranked.length) {
+        list.innerHTML = `<div style="text-align:center; padding:48px 20px; color:var(--muted); font-family: Georgia, serif; font-style: italic; font-size: 18px;">No players registered yet.</div>`;
         return;
     }
 
@@ -460,12 +493,13 @@ function renderLeaderboard() {
         item.className = `rank-card ${idx < 3 && data.mins > 0 ? 'podium-' + idx : ''}`;
         
         const timeStr = data.mins >= 60 ? `${Math.floor(data.mins/60)}h ${String(data.mins%60).padStart(2, '0')}m` : `${data.mins}m`;
+        const displayName = name === myPlayer ? `${name} (You)` : name;
 
         item.innerHTML = `
             <div class="rank-info">
                 <div class="rank-badge">${idx + 1}</div>
                 <div>
-                    <span class="rank-name">${name}</span>
+                    <span class="rank-name">${displayName}</span>
                     <span class="rank-details">${data.pomos} pomodoro${data.pomos !== 1 ? 's' : ''}</span>
                 </div>
             </div>
