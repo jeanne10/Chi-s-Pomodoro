@@ -570,6 +570,76 @@ body {
   margin: 0;
 }
 
+/* ---------- Registered Players Roster ---------- */
+.players-roster-card {
+  background-color: var(--card-bg);
+  border-radius: 26px;
+  padding: 20px 24px;
+  margin-bottom: 24px;
+}
+
+.roster-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.roster-title {
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--muted);
+}
+
+.roster-count {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink);
+  background: var(--white);
+  padding: 4px 12px;
+  border-radius: 14px;
+}
+
+.players-roster {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.player-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--white);
+  border: 1.5px solid #D8D4C8;
+  border-radius: 20px;
+  padding: 8px 16px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.player-chip.is-me {
+  background: var(--sage);
+  border-color: var(--sage-dark);
+}
+
+.player-chip-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: var(--sage-dark);
+}
+
+.roster-empty {
+  font-family: 'Georgia', serif;
+  font-style: italic;
+  font-size: 15px;
+  color: var(--muted);
+}
+
 .period-pills {
   display: flex;
   gap: 14px;
