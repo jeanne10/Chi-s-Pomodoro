@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/jpeg" href="{{ url_for('static', filename='favicon.png') }}">
     <title>Pomodoro Leaderboard</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
@@ -42,9 +43,10 @@
                 <!-- RIGHT: POMODORO -->
                 <section class="timer-col">
                     <div class="controls-row">
-                        <select id="player-select" class="player-select" onchange="onPlayerChange()">
-                            <option value="">Select player...</option>
-                        </select>
+                        <div id="player-badge" class="player-badge" onclick="ensurePlayerRegistered()">
+                            <span class="player-dot"></span>
+                            <span id="player-name-label">Set your name...</span>
+                        </div>
                         <div class="mode-pills-top">
                             <button class="pill-sm focus-pill" onclick="switchMode('Focus')">Focus</button>
                             <button class="pill-sm short-pill" onclick="switchMode('Short Break')">Short</button>
@@ -135,7 +137,6 @@
         <div id="nav-timer" class="dock-tab active" onclick="showPage('timer')">
             <span>◷</span> Timer
         </div>
-        <div class="dock-add-btn" onclick="openAddPlayerModal()" title="Add Player">+</div>
         <div id="nav-board" class="dock-tab" onclick="showPage('board')">
             <span>♛</span> Ranks
         </div>
